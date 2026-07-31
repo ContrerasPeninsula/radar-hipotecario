@@ -1,0 +1,32 @@
+{
+  "version": "2026.07-DRAFT",
+  "estado": "PENDIENTE_VALIDACION",
+  "nota_bloqueante": "DECISION #1: descargar la Tabla de Tasas de interés diferenciada del portal oficial de Infonavit, validar 3-4 casos contra el simulador de Mi Cuenta Infonavit, y sustituir 'tasas' abajo. NO usar valores de prensa.",
+  "url_fuente": "PENDIENTE — PDF oficial del portal Infonavit",
+  "fecha_descarga": null,
+  "requisitos": {
+    "puntaje_minimo": 100,
+    "meses_cotizacion_continua": 6,
+    "sin_credito_hipotecario_vigente": true
+  },
+  "plazo": {
+    "min_anios": 1,
+    "max_anios": 30,
+    "tope_edad_mas_plazo": {"hombre": 70, "mujer": 75}
+  },
+  "credito_post_2024_05_01": {
+    "cuota_administracion": 0.0,
+    "aporte_patronal_a_capital": true,
+    "aporte_patronal_pct_salario": 0.05
+  },
+  "tasas": {
+    "esquema": "PENDIENTE",
+    "tasa_unica_producto_estandar": 0.1045,
+    "tabla_diferenciada_por_uma": []
+  },
+  "montos": {
+    "maximo_compra_mxn": 2900000,
+    "nota": "Validar contra simulador oficial"
+  },
+  "modalidades": ["individual", "cofinavit", "segundo_credito"]
+}

@@ -1,0 +1,36 @@
+name: Ingesta programada
+
+on:
+  schedule:
+    - cron: "0 12 * * 1"   # lunes 12:00 UTC (~06:00 CDMX)
+  workflow_dispatch: {}     # disparo manual desde la pestaña Actions
+
+permissions:
+  contents: write
+
+jobs:
+  ingesta:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Correr pipeline de ingesta
+        env:
+          BANXICO_TOKEN: ${{ secrets.BANXICO_TOKEN }}
+          INEGI_TOKEN: ${{ secrets.INEGI_TOKEN }}
+        run: python scripts/ingesta_completa.py
+
+      - name: Commit del snapshot
+        run: |
+          git config user.name "radar-bot"
+          git config user.email "actions@github.com"
+          git add data/snapshots/
+          git diff --cached --quiet || git commit -m "snapshot: $(date -u +%F)"
+          git push

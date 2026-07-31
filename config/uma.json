@@ -1,0 +1,23 @@
+{
+  "fuente": "INEGI / DOF (publicación anual, primeros 10 días de enero; vigencia 1-feb a 31-ene)",
+  "valores": [
+    {
+      "vigencia_inicio": "2024-02-01",
+      "vigencia_fin": "2025-01-31",
+      "diario": 108.57,
+      "mensual": 3300.53
+    },
+    {
+      "vigencia_inicio": "2025-02-01",
+      "vigencia_fin": "2026-01-31",
+      "diario": 113.14,
+      "mensual": 3439.46
+    },
+    {
+      "vigencia_inicio": "2026-02-01",
+      "vigencia_fin": "2027-01-31",
+      "diario": 117.31,
+      "mensual": 3566.22
+    }
+  ]
+}

@@ -2,6 +2,9 @@
 Motor de originación bancaria estándar + cofinanciamiento (Cofinavit).
 La tasa de referencia viene del último snapshot (Banxico/CNBV), nunca hardcodeada.
 """
+
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 

@@ -3,6 +3,9 @@ Motor de reglas Infonavit — determinista, sin ML.
 Fuente de verdad: config/reglas_infonavit_v2026.json + config/uma.json.
 Se documenta en el paper como 'motor de reglas de negocio', separado de la capa predictiva.
 """
+
+from __future__ import annotations
+
 import json
 import sys
 from datetime import date

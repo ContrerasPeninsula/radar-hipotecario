@@ -2,6 +2,9 @@
 Ingesta de series del SIE de Banxico.
 Salida: DataFrame largo (fecha, serie, valor) listo para snapshot en Parquet.
 """
+
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 

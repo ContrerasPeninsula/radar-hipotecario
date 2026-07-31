@@ -26,13 +26,14 @@ SERIES_BANXICO = {
     "tiie_28": "SF43783",
     "tasa_objetivo": "SF61745",
     "fix_usd": "SF43718",
+    "inpc_general": "SP1",
     # Tasas de crédito a la vivienda: extraer IDs del cuadro CF815 vía metadatos
     # "tasa_hipotecaria_promedio": "PENDIENTE_CF815",
 }
 
 # ── INEGI ────────────────────────────────────────────────────────────────
 INEGI_TOKEN = os.getenv("INEGI_TOKEN", "")
-INEGI_BASE = "https://www.inegi.org.mx/app/api/indicadores/desarrolladores/jsonxml/INDICATOR"
+INEGI_BASE = "https://www.inegi.org.mx/app/api/indicadores/desarrolladores/jsonxml"
 
 # ── Alcance geográfico ───────────────────────────────────────────────────
 CIUDADES = {

@@ -1,9 +1,9 @@
 {
-  "version": "2026.07-DRAFT",
-  "estado": "PENDIENTE_VALIDACION",
-  "nota_bloqueante": "DECISION #1: descargar la Tabla de Tasas de interés diferenciada del portal oficial de Infonavit, validar 3-4 casos contra el simulador de Mi Cuenta Infonavit, y sustituir 'tasas' abajo. NO usar valores de prensa.",
-  "url_fuente": "PENDIENTE — PDF oficial del portal Infonavit",
-  "fecha_descarga": null,
+  "version": "2026.07-VALIDADO",
+  "estado": "VALIDADO",
+  "nota_bloqueante": null,
+  "url_fuente": "https://portalmx.infonavit.org.mx/wps/wcm/connect/e005a4ce-6b5d-4b2d-a8aa-eae7a9c7ef93/Tasas_diferenciadas_portal.pdf",
+  "fecha_descarga": "2026-07-31",
   "requisitos": {
     "puntaje_minimo": 100,
     "meses_cotizacion_continua": 6,
@@ -20,13 +20,56 @@
     "aporte_patronal_pct_salario": 0.05
   },
   "tasas": {
-    "esquema": "PENDIENTE",
+    "esquema": "diferenciada_por_uma",
+    "nota": "Tabla vigente para UMA 2026 ($117.31). Revalidar cada febrero cuando cambie la UMA.",
     "tasa_unica_producto_estandar": 0.1045,
-    "tabla_diferenciada_por_uma": []
+    "tabla_diferenciada_por_uma": [
+      {"uma_min": 0, "uma_max": 2.6, "tasa": 0.0369, "salario_mensual_referencia": 9272.18},
+      {"uma_min": 2.6, "uma_max": 2.7, "tasa": 0.0388, "salario_mensual_referencia": 9628.80},
+      {"uma_min": 2.7, "uma_max": 2.8, "tasa": 0.0407, "salario_mensual_referencia": 9985.43},
+      {"uma_min": 2.8, "uma_max": 2.9, "tasa": 0.0426, "salario_mensual_referencia": 10342.05},
+      {"uma_min": 2.9, "uma_max": 3.0, "tasa": 0.0445, "salario_mensual_referencia": 10698.67},
+      {"uma_min": 3.0, "uma_max": 3.1, "tasa": 0.0464, "salario_mensual_referencia": 11055.29},
+      {"uma_min": 3.1, "uma_max": 3.2, "tasa": 0.0483, "salario_mensual_referencia": 11411.92},
+      {"uma_min": 3.2, "uma_max": 3.3, "tasa": 0.0502, "salario_mensual_referencia": 11768.54},
+      {"uma_min": 3.3, "uma_max": 3.4, "tasa": 0.0521, "salario_mensual_referencia": 12125.16},
+      {"uma_min": 3.4, "uma_max": 3.5, "tasa": 0.0540, "salario_mensual_referencia": 12481.78},
+      {"uma_min": 3.5, "uma_max": 3.6, "tasa": 0.0559, "salario_mensual_referencia": 12838.41},
+      {"uma_min": 3.6, "uma_max": 3.7, "tasa": 0.0578, "salario_mensual_referencia": 13195.03},
+      {"uma_min": 3.7, "uma_max": 3.8, "tasa": 0.0596, "salario_mensual_referencia": 13551.65},
+      {"uma_min": 3.8, "uma_max": 3.9, "tasa": 0.0615, "salario_mensual_referencia": 13908.27},
+      {"uma_min": 3.9, "uma_max": 4.0, "tasa": 0.0634, "salario_mensual_referencia": 14264.90},
+      {"uma_min": 4.0, "uma_max": 4.1, "tasa": 0.0653, "salario_mensual_referencia": 14621.52},
+      {"uma_min": 4.1, "uma_max": 4.2, "tasa": 0.0672, "salario_mensual_referencia": 14978.14},
+      {"uma_min": 4.2, "uma_max": 4.3, "tasa": 0.0691, "salario_mensual_referencia": 15334.76},
+      {"uma_min": 4.3, "uma_max": 4.4, "tasa": 0.0710, "salario_mensual_referencia": 15691.39},
+      {"uma_min": 4.4, "uma_max": 4.5, "tasa": 0.0729, "salario_mensual_referencia": 16048.01},
+      {"uma_min": 4.5, "uma_max": 4.6, "tasa": 0.0748, "salario_mensual_referencia": 16404.63},
+      {"uma_min": 4.6, "uma_max": 4.7, "tasa": 0.0767, "salario_mensual_referencia": 16761.25},
+      {"uma_min": 4.7, "uma_max": 4.8, "tasa": 0.0786, "salario_mensual_referencia": 17117.88},
+      {"uma_min": 4.8, "uma_max": 4.9, "tasa": 0.0805, "salario_mensual_referencia": 17474.50},
+      {"uma_min": 4.9, "uma_max": 5.0, "tasa": 0.0819, "salario_mensual_referencia": 17831.12},
+      {"uma_min": 5.0, "uma_max": 5.1, "tasa": 0.0833, "salario_mensual_referencia": 18187.74},
+      {"uma_min": 5.1, "uma_max": 5.2, "tasa": 0.0847, "salario_mensual_referencia": 18544.36},
+      {"uma_min": 5.2, "uma_max": 5.3, "tasa": 0.0861, "salario_mensual_referencia": 18900.99},
+      {"uma_min": 5.3, "uma_max": 5.4, "tasa": 0.0876, "salario_mensual_referencia": 19257.61},
+      {"uma_min": 5.4, "uma_max": 5.5, "tasa": 0.0890, "salario_mensual_referencia": 19614.23},
+      {"uma_min": 5.5, "uma_max": 5.6, "tasa": 0.0904, "salario_mensual_referencia": 19970.85},
+      {"uma_min": 5.6, "uma_max": 5.7, "tasa": 0.0918, "salario_mensual_referencia": 20327.48},
+      {"uma_min": 5.7, "uma_max": 5.8, "tasa": 0.0932, "salario_mensual_referencia": 20684.10},
+      {"uma_min": 5.8, "uma_max": 5.9, "tasa": 0.0946, "salario_mensual_referencia": 21040.72},
+      {"uma_min": 5.9, "uma_max": 6.0, "tasa": 0.0960, "salario_mensual_referencia": 21397.34},
+      {"uma_min": 6.0, "uma_max": 6.1, "tasa": 0.0974, "salario_mensual_referencia": 21753.97},
+      {"uma_min": 6.1, "uma_max": 6.2, "tasa": 0.0989, "salario_mensual_referencia": 22110.59},
+      {"uma_min": 6.2, "uma_max": 6.3, "tasa": 0.1003, "salario_mensual_referencia": 22467.21},
+      {"uma_min": 6.3, "uma_max": 6.4, "tasa": 0.1017, "salario_mensual_referencia": 22823.83},
+      {"uma_min": 6.4, "uma_max": 6.5, "tasa": 0.1031, "salario_mensual_referencia": 23180.46},
+      {"uma_min": 6.5, "uma_max": 999, "tasa": 0.1045, "salario_mensual_referencia": 23537.08}
+    ]
   },
   "montos": {
     "maximo_compra_mxn": 2900000,
-    "nota": "Validar contra simulador oficial"
+    "nota": "Validar contra simulador oficial en sesión futura"
   },
   "modalidades": ["individual", "cofinavit", "segundo_credito"]
 }

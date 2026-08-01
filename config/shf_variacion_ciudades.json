@@ -1,0 +1,11 @@
+{
+  "fuente": "SHF - Índice de Precios de la Vivienda en México, Datos Abiertos T1 2026",
+  "url_fuente": "https://www.gob.mx/shf/documentos/indice-shf-de-precios-de-la-vivienda-en-mexico-2025-a-2026",
+  "fecha_descarga": "2026-08-01",
+  "metodologia": "Variación anual = (índice T1 2026 / índice T1 2025 - 1) * 100. Índice de apreciación, no representa pesos absolutos.",
+  "ciudades": {
+    "cdmx": {"nivel": "estado", "referencia": "Ciudad de México", "indice_t1_2025": 167.71, "indice_t1_2026": 175.20, "variacion_anual_pct": 4.47},
+    "estado_mexico": {"nivel": "estado", "referencia": "México", "indice_t1_2025": 162.41, "indice_t1_2026": 171.74, "variacion_anual_pct": 5.74},
+    "guadalajara": {"nivel": "municipio", "referencia": "Guadalajara, Jalisco", "indice_t1_2025": 210.34, "indice_t1_2026": 235.30, "variacion_anual_pct": 11.87}
+  }
+}

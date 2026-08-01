@@ -1,16 +1,13 @@
 """
 Segmentación no supervisada de ciudades — arquetipos de mercado inmobiliario.
 
-v2 — datos 100% REALES: precio/m² viene del scraper de Inmuebles24
-(data/oferta_inmuebles24.parquet), agregado por mediana por ciudad.
-Ya NO se usan marcadores sintéticos — el alcance de ciudades (config.CIUDADES)
-coincide exactamente con la cobertura real del scraper: CDMX, Estado de
-México, Guadalajara.
+v3 — DOS features 100% reales, cada una de su fuente más confiable posible:
+  - precio_m2:            mediana de anuncios reales (data/oferta_inmuebles24.parquet)
+  - variacion_anual_pct:  índice oficial SHF, basado en avalúos de créditos
+                           hipotecarios reales (config/shf_variacion_ciudades.json)
+                           — no depende del scraper, no tiene sesgo de "Destacado".
 
-Feature única por ahora: precio_m2 (mediana de anuncios reales). Variables
-adicionales (variación anual, absorción) quedan pendientes de una fuente
-real confirmada para las 3 ciudades — se agregan cuando existan, no se
-inventan mientras tanto.
+Con esto se cierra la limitación documentada en v2 (solo precio_m2 disponible).
 
 Capa NO SUPERVISADA, complementaria a:
   - src/modelos/forecast_tasas.py  → supervisado / series de tiempo (Prophet)
@@ -18,6 +15,7 @@ Capa NO SUPERVISADA, complementaria a:
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -26,45 +24,58 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from config.settings import CIUDADES, DIR_DATA
+from config.settings import CIUDADES, DIR_CONFIG, DIR_DATA
 
-FEATURES_DEFAULT = ["precio_m2"]
+FEATURES_DEFAULT = ["precio_m2", "variacion_anual_pct"]
 
 
-def cargar_desde_scraping(ruta_parquet: Path | None = None) -> pd.DataFrame:
-    """
-    Agrega el detalle de anuncios (oferta_inmuebles24.parquet) a nivel ciudad:
-    mediana de precio/m² — mediana, no promedio, por las colas largas típicas
-    del mercado inmobiliario (mansiones, remates).
-    """
+def cargar_precio_scraping(ruta_parquet: Path | None = None) -> pd.DataFrame:
+    """Mediana de precio/m² por ciudad, del detalle de anuncios scrapeados."""
     ruta = ruta_parquet or (DIR_DATA / "oferta_inmuebles24.parquet")
     if not ruta.exists():
         raise FileNotFoundError(
             f"No existe {ruta}. Corre `python3 src/ingesta/scraper_inmuebles24.py` primero."
         )
     detalle = pd.read_parquet(ruta)
-    resumen = (
+    return (
         detalle.groupby("ciudad")
         .agg(precio_m2=("precio_m2", "median"), n_anuncios=("precio_m2", "count"))
         .reset_index()
     )
-    return resumen
+
+
+def cargar_variacion_shf(ruta_json: Path | None = None) -> pd.DataFrame:
+    """Variación anual oficial SHF por ciudad — ver config/shf_variacion_ciudades.json."""
+    ruta = ruta_json or (DIR_CONFIG / "shf_variacion_ciudades.json")
+    if not ruta.exists():
+        raise FileNotFoundError(f"No existe {ruta}.")
+    with open(ruta, encoding="utf-8") as f:
+        data = json.load(f)
+    filas = [
+        {"ciudad": ciudad, "variacion_anual_pct": info["variacion_anual_pct"]}
+        for ciudad, info in data["ciudades"].items()
+    ]
+    return pd.DataFrame(filas)
+
+
+def construir_dataset_mercado() -> pd.DataFrame:
+    """Une precio/m² (scraper) + variación anual (SHF) en un solo dataset real."""
+    precios = cargar_precio_scraping()
+    variacion = cargar_variacion_shf()
+    return precios.merge(variacion, on="ciudad", how="inner")
 
 
 def cargar_datos_mercado(df: pd.DataFrame, features: list[str] | None = None) -> pd.DataFrame:
-    """
-    Valida cobertura completa de CIUDADES antes de clusterizar — mismo criterio
-    estricto que la v1: sin datos completos, no hay corrida.
-    """
+    """Valida cobertura completa de CIUDADES antes de clusterizar."""
     features = features or FEATURES_DEFAULT
     faltantes = set(CIUDADES.keys()) - set(df["ciudad"])
     if faltantes:
         raise ValueError(
             f"Faltan datos de mercado para: {faltantes}. "
-            "Corre el scraper o ajusta config.CIUDADES para que coincida con la cobertura real."
+            "Verificar cobertura del scraper y del JSON de SHF."
         )
     if df[features].isna().any().any():
-        raise ValueError(f"Hay valores nulos en {features} — revisar el parquet de origen.")
+        raise ValueError(f"Hay valores nulos en {features} — revisar las fuentes de origen.")
     return df[["ciudad"] + features].copy()
 
 
@@ -102,21 +113,46 @@ def perfilar_clusters(df: pd.DataFrame, features: list[str] | None = None) -> pd
 
 
 def nombrar_arquetipos(perfil: pd.DataFrame) -> dict[int, str]:
-    """Con una sola feature real (precio_m2), la heurística se simplifica a
-    tier de precio — ampliar cuando haya más features reales confirmadas."""
-    mediana_global = perfil["precio_m2"].median()
+    """Con dos features reales, restauramos la heurística de cuadrante
+    precio × variación (igual que el diseño original)."""
+    precio_mediana = perfil["precio_m2"].median()
+    variacion_mediana = perfil["variacion_anual_pct"].median()
+
     nombres = {}
     for _, fila in perfil.iterrows():
-        nombre = "Premium" if fila["precio_m2"] >= mediana_global else "Accesible"
+        precio_alto = fila["precio_m2"] >= precio_mediana
+        variacion_alta = fila["variacion_anual_pct"] >= variacion_mediana
+        if precio_alto and variacion_alta:
+            nombre = "Premium en expansión"
+        elif precio_alto and not variacion_alta:
+            nombre = "Premium consolidado"
+        elif not precio_alto and variacion_alta:
+            nombre = "Emergente"
+        else:
+            nombre = "Estable / rezagado"
         nombres[int(fila["cluster"])] = nombre
     return nombres
 
 
-if __name__ == "__main__":
-    print("Cargando datos REALES del scraper de Inmuebles24...\n")
+def obtener_arquetipos() -> dict[str, str]:
+    """Pipeline completo listo para usar en la UI: {ciudad: nombre_arquetipo}."""
+    df_real = construir_dataset_mercado()
+    df_prep = cargar_datos_mercado(df_real)
+    sugerencia = elegir_k(df_prep)
+    df_clusters = entrenar_kmeans(df_prep, k=sugerencia["k_sugerido"])
+    perfil = perfilar_clusters(df_clusters)
+    nombres_por_cluster = nombrar_arquetipos(perfil)
 
-    df_real = cargar_desde_scraping()
-    print("Precio/m² mediano por ciudad (datos reales):")
+    return {
+        fila["ciudad"]: nombres_por_cluster[fila["cluster"]]
+        for _, fila in df_clusters.iterrows()
+    }
+
+
+if __name__ == "__main__":
+    print("Cargando dataset de mercado 100% real (scraper + SHF)...\n")
+
+    df_real = construir_dataset_mercado()
     print(df_real.to_string(index=False))
 
     df_prep = cargar_datos_mercado(df_real)

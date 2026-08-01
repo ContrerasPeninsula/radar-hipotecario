@@ -51,6 +51,7 @@ PATRON_PRECIO = re.compile(r"(?:MN|\$)\s?([\d,]{5,})")
 PATRON_M2 = re.compile(r"([\d,]+(?:\.\d+)?)\s?m[²2]")
 
 M2_MIN, M2_MAX = 15, 1000
+PRECIO_M2_MIN, PRECIO_M2_MAX = 5000, 200000  # descarta placeholders ("MN 1") y basura de parsing
 
 
 def _num(texto: str | None) -> float | None:
@@ -60,8 +61,9 @@ def _num(texto: str | None) -> float | None:
     return float(m.group()) if m else None
 
 
-def construir_url_busqueda(slug: str) -> str:
-    return f"{BASE_URL}/casas-en-venta-en-{slug}.html"
+def construir_url_busqueda(slug: str, pagina: int = 1) -> str:
+    base = f"{BASE_URL}/casas-en-venta-en-{slug}"
+    return f"{base}.html" if pagina == 1 else f"{base}-pagina-{pagina}.html"
 
 
 def iniciar_driver(headless: bool = True):
@@ -92,9 +94,9 @@ def aceptar_cookies(driver) -> None:
             continue
 
 
-def extraer_tarjetas(soup: BeautifulSoup, ciudad: str) -> list[dict]:
+def extraer_tarjetas(soup: BeautifulSoup, ciudad: str, vistos: set | None = None) -> list[dict]:
     registros = []
-    vistos = set()
+    vistos = vistos if vistos is not None else set()
 
     for link in soup.find_all("a", href=True):
         href = link["href"]
@@ -105,8 +107,6 @@ def extraer_tarjetas(soup: BeautifulSoup, ciudad: str) -> list[dict]:
             continue
         vistos.add(url_completa)
 
-        # Buscar el bloque de texto más informativo: el propio link, o si no
-        # trae precio/m², subir un nivel al contenedor padre.
         texto = link.get_text(" ", strip=True)
         precio, m2 = _extraer_precio_m2(texto)
 
@@ -119,7 +119,7 @@ def extraer_tarjetas(soup: BeautifulSoup, ciudad: str) -> list[dict]:
             intentos += 1
 
         if precio is None or m2 is None:
-            continue  # no se pudo extraer info completa, se descarta
+            continue
 
         registros.append({
             "ciudad": ciudad,
@@ -141,45 +141,52 @@ def _extraer_precio_m2(texto: str) -> tuple[float | None, float | None]:
     return precio, m2
 
 
-def scrapear_ciudad(nombre_ciudad: str, headless: bool = True) -> pd.DataFrame:
+def scrapear_ciudad(nombre_ciudad: str, headless: bool = True, max_paginas: int = 1) -> pd.DataFrame:
     slug = SLUGS_INMUEBLES24[nombre_ciudad]
-    url = construir_url_busqueda(slug)
-
     driver = iniciar_driver(headless=headless)
+    todos_registros = []
+    vistos: set = set()
+
     try:
-        driver.get(url)
-        time.sleep(RATE_LIMIT_SEGUNDOS)
-        aceptar_cookies(driver)
+        for pagina in range(1, max_paginas + 1):
+            url = construir_url_busqueda(slug, pagina=pagina)
+            driver.get(url)
+            time.sleep(RATE_LIMIT_SEGUNDOS)
+            if pagina == 1:
+                aceptar_cookies(driver)
 
-        # Scroll progresivo — contenido lazy-load
-        for _ in range(6):
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(1.5)
+            for _ in range(6):
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(1.5)
 
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        registros = extraer_tarjetas(soup, nombre_ciudad)
-        print(f"  [{nombre_ciudad}] {len(registros)} anuncios con precio+m² extraídos")
+            soup = BeautifulSoup(driver.page_source, "html.parser")
+            nuevos = extraer_tarjetas(soup, nombre_ciudad, vistos=vistos)
+            print(f"  [{nombre_ciudad}] página {pagina}: {len(nuevos)} anuncios nuevos")
+
+            if not nuevos:
+                break  # fin de resultados
+            todos_registros.extend(nuevos)
 
     finally:
         driver.quit()
 
-    df = pd.DataFrame(registros)
+    df = pd.DataFrame(todos_registros)
     if not df.empty:
         n_antes = len(df)
-        df = df[df["m2"].between(M2_MIN, M2_MAX)].copy()
+        df = df[
+            df["m2"].between(M2_MIN, M2_MAX)
+            & df["precio_m2"].between(PRECIO_M2_MIN, PRECIO_M2_MAX)
+        ].copy()
         if len(df) != n_antes:
-            print(f"  ⚠️  {nombre_ciudad}: descartadas {n_antes - len(df)} tarjeta(s) con m² fuera de [{M2_MIN}, {M2_MAX}]")
-
-    if nombre_ciudad == "estado_mexico" and not df.empty:
-        print(f"  [DEBUG estado_mexico] precios/m² extraídos: {sorted(df['precio_m2'].tolist())}")
+            print(f"  ⚠️  {nombre_ciudad}: descartadas {n_antes - len(df)} tarjeta(s) fuera de rangos plausibles")
     return df
 
 
-def scrapear_ciudades_activas(headless: bool = True) -> pd.DataFrame:
+def scrapear_ciudades_activas(headless: bool = True, max_paginas: int = 1) -> pd.DataFrame:
     partes = []
     for ciudad in SLUGS_INMUEBLES24:
         print(f"Scrapeando {ciudad}...")
-        df_ciudad = scrapear_ciudad(ciudad, headless=headless)
+        df_ciudad = scrapear_ciudad(ciudad, headless=headless, max_paginas=max_paginas)
         partes.append(df_ciudad)
         time.sleep(RATE_LIMIT_SEGUNDOS)
     return pd.concat(partes, ignore_index=True) if partes else pd.DataFrame()
@@ -188,7 +195,7 @@ def scrapear_ciudades_activas(headless: bool = True) -> pd.DataFrame:
 if __name__ == "__main__":
     print(f"Ciudades activas: {list(SLUGS_INMUEBLES24.keys())}\n")
 
-    df = scrapear_ciudades_activas(headless=True)
+    df = scrapear_ciudades_activas(headless=True , max_paginas=1)
 
     if df.empty:
         print("\n⚠️  No se extrajo ningún anuncio. Revisar estructura del sitio.")

@@ -1,0 +1,17 @@
+{
+  "fuente": "SHF - Índice de Precios de la Vivienda, T1 2026 (ancla nacional) + índices por ciudad",
+  "url_fuente": "https://www.gob.mx/shf/articulos/indice-shf-de-precios-de-la-vivienda-en-mexico-primer-trimestre-de-2026",
+  "fecha_descarga": "2026-08-01",
+  "metodologia": "precio_ciudad_percentil = precio_nacional_percentil × (índice_ciudad_T1_2026 / índice_nacional_T1_2026). Escala la distribución nacional oficial de valores de avalúo hipotecario según la apreciación relativa de cada ciudad. No usa datos del scraper — 100% independiente de sesgos de portales de anuncios.",
+  "ancla_nacional": {
+    "indice_t1_2026": 203.2,
+    "p25": 842000,
+    "mediana": 1331000,
+    "p75": 2363000
+  },
+  "ciudades": {
+    "cdmx": {"indice_t1_2026": 175.20, "p25": 725976, "mediana": 1147594, "p75": 2037390},
+    "estado_mexico": {"indice_t1_2026": 171.74, "p25": 711639, "mediana": 1124931, "p75": 1997154},
+    "guadalajara": {"indice_t1_2026": 235.30, "p25": 975013, "mediana": 1541261, "p75": 2736289}
+  }
+}

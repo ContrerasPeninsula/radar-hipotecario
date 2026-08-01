@@ -11,6 +11,8 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config.settings import CIUDADES, DIR_SNAPSHOTS
+from src.asistente.chat import responder
+from src.modelos.forecast_tasas import proyectar_tasa_hipotecaria, semaforo
 from src.motor_reglas.bancario import escenario_bancario, escenario_cofinavit
 from src.motor_reglas.infonavit import escenario_infonavit
 
@@ -52,12 +54,16 @@ with st.sidebar:
 
 tasa_banco = tasa_bancaria_referencia(series)
 
+# ── Cálculo de los tres escenarios (se guardan para el asistente) ──────────
+resultados = {"infonavit": None, "banco": None, "cofinavit": None, "semaforo": None}
+
 col1, col2, col3 = st.columns(3)
 
 with col1:
     st.subheader("🏛️ Infonavit")
     if formal:
-        e = escenario_infonavit(ingreso, edad, sexo[0], ssv=ssv)
+        resultados["infonavit"] = escenario_infonavit(ingreso, edad, sexo[0], ssv=ssv)
+        e = resultados["infonavit"]
         if e["elegible"]:
             st.metric("Capacidad total", f"${e['capacidad_total']:,.0f}")
             st.metric("Mensualidad", f"${e['mensualidad_estimada']:,.0f}")
@@ -71,7 +77,8 @@ with col1:
 
 with col2:
     st.subheader("🏦 Banco")
-    e = escenario_bancario(ingreso, enganche, tasa_anual=tasa_banco)
+    resultados["banco"] = escenario_bancario(ingreso, enganche, tasa_anual=tasa_banco)
+    e = resultados["banco"]
     st.metric("Capacidad total", f"${e['capacidad_total']:,.0f}")
     st.metric("Mensualidad", f"${e['mensualidad_estimada']:,.0f}")
     st.caption(f"Tasa ref. {e['tasa_anual']:.2%} · {e['plazo_anios']} años")
@@ -79,7 +86,8 @@ with col2:
 with col3:
     st.subheader("🤝 Cofinavit")
     if formal:
-        e = escenario_cofinavit(ingreso, edad, sexo[0], ssv, enganche, tasa_banco)
+        resultados["cofinavit"] = escenario_cofinavit(ingreso, edad, sexo[0], ssv, enganche, tasa_banco)
+        e = resultados["cofinavit"]
         if e["elegible"]:
             st.metric("Capacidad total", f"${e['capacidad_total']:,.0f}")
             st.caption("Infonavit + banco combinados")
@@ -90,4 +98,53 @@ with col3:
 
 st.divider()
 st.subheader("📈 Semáforo de mercado")
-st.info("TODO: proyecciones Prophet (tasas y precios) + recomendación COMPRA_AHORA / ESPERA / NEGOCIA")
+
+with st.spinner("Proyectando tasas a 12 meses..."):
+    try:
+        proyeccion = proyectar_tasa_hipotecaria(horizonte_dias=365)
+        resultado_semaforo = semaforo(proyeccion)
+        resultados["semaforo"] = resultado_semaforo
+
+        color = {"COMPRA_AHORA": "🔴", "ESPERA": "🟢", "NEGOCIA": "🟡"}[resultado_semaforo["senal"]]
+        st.markdown(f"### {color} {resultado_semaforo['senal'].replace('_', ' ')}")
+        st.write(resultado_semaforo["razon"])
+
+        col_a, col_b, col_c = st.columns(3)
+        col_a.metric("Tasa hipotecaria actual", f"{resultado_semaforo['tasa_actual']:.2%}")
+        col_b.metric("Proyección 12 meses", f"{resultado_semaforo['tasa_proyectada']:.2%}",
+                     delta=f"{resultado_semaforo['delta_pp']:.2f} pp")
+        col_c.metric("Fecha de proyección", proyeccion["fecha_proyeccion"].strftime("%b %Y"))
+
+        with st.expander("Ver metodología"):
+            st.caption(
+                "Proyección vía Prophet sobre la serie TIIE 28 días de Banxico (10 años de historia), "
+                "con backtest de 365 días. El semáforo es una capa de reglas aplicada sobre la "
+                "proyección — no es parte del modelo predictivo."
+            )
+    except Exception as e:
+        st.warning(f"No se pudo calcular el semáforo: {e}")
+
+# ── Asistente conversacional ────────────────────────────────────────────
+st.divider()
+st.subheader("💬 Pregúntale al asistente")
+st.caption("Explica tus resultados o responde dudas generales de crédito hipotecario. No sustituye asesoría profesional.")
+
+if "historial_chat" not in st.session_state:
+    st.session_state.historial_chat = []
+
+for mensaje in st.session_state.historial_chat:
+    with st.chat_message(mensaje["role"]):
+        st.write(mensaje["content"])
+
+pregunta = st.chat_input("Ej. ¿Por qué mi tasa de Infonavit es esa?")
+if pregunta:
+    st.session_state.historial_chat.append({"role": "user", "content": pregunta})
+    with st.chat_message("user"):
+        st.write(pregunta)
+
+    perfil = {"ingreso": ingreso, "edad": edad, "ciudad": ciudad, "formal": formal}
+    with st.chat_message("assistant"):
+        with st.spinner("Pensando..."):
+            respuesta = responder(pregunta, st.session_state.historial_chat[:-1], perfil, resultados)
+            st.write(respuesta)
+    st.session_state.historial_chat.append({"role": "assistant", "content": respuesta})

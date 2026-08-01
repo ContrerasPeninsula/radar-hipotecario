@@ -38,10 +38,11 @@ INEGI_BASE = "https://www.inegi.org.mx/app/api/indicadores/desarrolladores/jsonx
 # ── Alcance geográfico ───────────────────────────────────────────────────
 CIUDADES = {
     "guadalajara": {"estado": "jalisco", "slug_portal": "jalisco/guadalajara"},
-    "cdmx": {"estado": "ciudad-de-mexico", "slug_portal": "distrito-federal/ciudad-de-mexico"},
+    "cdmx": {"estado": "ciudad-de-mexico", "slug_portal": "distrito-federal"},
     "puerto_vallarta": {"estado": "jalisco", "slug_portal": "jalisco/puerto-vallarta"},
     "mazatlan": {"estado": "sinaloa", "slug_portal": "sinaloa/mazatlan"},
     "acapulco": {"estado": "guerrero", "slug_portal": "guerrero/acapulco-de-juarez"},
+    "estado_mexico": {"estado": "mexico", "slug_portal": "mexico"},
 }
 
 # ── Sanity checks ────────────────────────────────────────────────────────

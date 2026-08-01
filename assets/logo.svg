@@ -1,0 +1,6 @@
+<svg width="400" height="140" viewBox="0 0 400 140" xmlns="http://www.w3.org/2000/svg">
+  <path d="M200 30 L235 55 L235 97 L165 97 L165 55 Z" fill="none" stroke="#C1662F" stroke-width="2.5" stroke-linejoin="round"/>
+  <line x1="200" y1="77" x2="220" y2="61" stroke="#C1662F" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="200" cy="77" r="4" fill="#C1662F"/>
+  <text x="200" y="118" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="500" fill="#1B1D24">Radar Hipotecario</text>
+</svg>

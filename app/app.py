@@ -17,7 +17,7 @@ from src.modelos.forecast_tasas import proyectar_tasa_hipotecaria, semaforo
 from src.motor_reglas.bancario import escenario_bancario, escenario_cofinavit
 from src.motor_reglas.infonavit import escenario_infonavit
 
-st.set_page_config(page_title="Radar Hipotecario", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Radar Hipotecario", page_icon="🏠", layout="wide")
 
 
 @st.cache_data
@@ -36,12 +36,13 @@ def tasa_bancaria_referencia(series: pd.DataFrame) -> float:
     return tiie + 0.035
 
 
-st.title("📡 Radar Hipotecario")
+st.title("Radar Hipotecario")
 st.caption("¿Es buen momento para comprar casa — y por cuál vía de crédito te conviene?")
 
 series = cargar_series()
 
 with st.sidebar:
+    st.image("assets/logo_sidebar.svg", width=180)
     st.header("Tu perfil")
     ingreso = st.number_input("Ingreso mensual (MXN)", 5000, 500000, 18000, step=1000)
     edad = st.number_input("Edad", 18, 69, 32)

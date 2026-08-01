@@ -1,7 +1,8 @@
 """
 Radar Hipotecario — UI Streamlit.
 Lee snapshots Parquet del repo (nunca APIs en vivo) + motores de reglas.
-Despliegue: Streamlit Community Cloud (sin secrets necesarios para servir).
+Despliegue: Streamlit Community Cloud (sin secrets necesarios para servir la parte
+determinista; ANTHROPIC_API_KEY se necesita solo para el asistente).
 """
 import sys
 from pathlib import Path
@@ -11,7 +12,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config.settings import CIUDADES, DIR_SNAPSHOTS
-from src.asistente.chat import responder
+from src.asistente.chat import generar_resumen_estructurado, responder
 from src.modelos.forecast_tasas import proyectar_tasa_hipotecaria, semaforo
 from src.motor_reglas.bancario import escenario_bancario, escenario_cofinavit
 from src.motor_reglas.infonavit import escenario_infonavit
@@ -29,11 +30,10 @@ def cargar_series() -> pd.DataFrame:
 
 
 def tasa_bancaria_referencia(series: pd.DataFrame) -> float:
-    """Última tasa hipotecaria del snapshot; fallback temporal a TIIE + spread típico."""
     if "tasa_hipotecaria_promedio" in series["serie"].unique():
         return series.loc[series["serie"] == "tasa_hipotecaria_promedio", "valor"].iloc[-1] / 100
     tiie = series.loc[series["serie"] == "tiie_28", "valor"].iloc[-1] / 100
-    return tiie + 0.035  # spread provisional — sustituir al integrar CF815/CNBV
+    return tiie + 0.035
 
 
 st.title("📡 Radar Hipotecario")
@@ -54,7 +54,6 @@ with st.sidebar:
 
 tasa_banco = tasa_bancaria_referencia(series)
 
-# ── Cálculo de los tres escenarios (se guardan para el asistente) ──────────
 resultados = {"infonavit": None, "banco": None, "cofinavit": None, "semaforo": None}
 
 col1, col2, col3 = st.columns(3)
@@ -124,19 +123,42 @@ with st.spinner("Proyectando tasas a 12 meses..."):
     except Exception as e:
         st.warning(f"No se pudo calcular el semáforo: {e}")
 
-# ── Asistente conversacional ────────────────────────────────────────────
+st.divider()
+st.subheader("📋 Resumen ejecutivo")
+st.caption("Genera un resumen estructurado (JSON validado por schema) del caso actual.")
+
+if st.button("Generar resumen ejecutivo"):
+    with st.spinner("Generando..."):
+        resumen = generar_resumen_estructurado(
+            {"ingreso": ingreso, "edad": edad, "ciudad": ciudad, "formal": formal},
+            resultados,
+        )
+    if "error" in resumen:
+        st.warning(resumen["error"])
+    else:
+        st.info(resumen["resumen"])
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Mejor opción", resumen["mejor_opcion"].replace("_", " ").title())
+        c2.write(f"**Riesgo principal**\n\n{resumen['riesgo_principal']}")
+        c3.write(f"**Siguiente paso**\n\n{resumen['siguiente_paso']}")
+
 st.divider()
 st.subheader("💬 Pregúntale al asistente")
-st.caption("Explica tus resultados o responde dudas generales de crédito hipotecario. No sustituye asesoría profesional.")
+st.caption(
+    "Explica tus resultados, responde dudas generales, o recalcula escenarios "
+    "hipotéticos (ej. \"¿y si ganara $25,000?\") usando el motor de reglas real. "
+    "No sustituye asesoría profesional."
+)
 
 if "historial_chat" not in st.session_state:
     st.session_state.historial_chat = []
 
 for mensaje in st.session_state.historial_chat:
-    with st.chat_message(mensaje["role"]):
-        st.write(mensaje["content"])
+    if isinstance(mensaje["content"], str):
+        with st.chat_message(mensaje["role"]):
+            st.write(mensaje["content"])
 
-pregunta = st.chat_input("Ej. ¿Por qué mi tasa de Infonavit es esa?")
+pregunta = st.chat_input("Ej. ¿Y si mi ingreso fuera de $25,000?")
 if pregunta:
     st.session_state.historial_chat.append({"role": "user", "content": pregunta})
     with st.chat_message("user"):

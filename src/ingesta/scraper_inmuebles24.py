@@ -35,8 +35,7 @@ USER_AGENT = (
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 )
 
-# Slugs propios de Inmuebles24 — distintos a los de Lamudi (config.CIUDADES),
-# por eso viven aquí y no en config/settings.py.
+# Slugs propios de Inmuebles24 (formato distinto al de Lamudi/CIUDADES).
 SLUGS_INMUEBLES24 = {
     "cdmx": "ciudad-de-mexico",
     "estado_mexico": "estado-de-mexico",
@@ -48,7 +47,7 @@ SLUGS_INMUEBLES24 = {
 # eso NO se ancla el patrón al final del string con $).
 PATRON_URL_ANUNCIO = re.compile(r"-\d{6,}\.html")
 
-PATRON_PRECIO = re.compile(r"\$\s?([\d,]{5,})")
+PATRON_PRECIO = re.compile(r"(?:MN|\$)\s?([\d,]{5,})")
 PATRON_M2 = re.compile(r"([\d,]+(?:\.\d+)?)\s?m[²2]")
 
 M2_MIN, M2_MAX = 15, 1000
@@ -170,6 +169,9 @@ def scrapear_ciudad(nombre_ciudad: str, headless: bool = True) -> pd.DataFrame:
         df = df[df["m2"].between(M2_MIN, M2_MAX)].copy()
         if len(df) != n_antes:
             print(f"  ⚠️  {nombre_ciudad}: descartadas {n_antes - len(df)} tarjeta(s) con m² fuera de [{M2_MIN}, {M2_MAX}]")
+
+    if nombre_ciudad == "estado_mexico" and not df.empty:
+        print(f"  [DEBUG estado_mexico] precios/m² extraídos: {sorted(df['precio_m2'].tolist())}")
     return df
 
 

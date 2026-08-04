@@ -37,6 +37,8 @@ un escenario distinto al que ya tienes en contexto (otro salario, otra ciudad, o
 usa la tool `recalcular_escenarios_credito` — no lo estimes tú.
 2. Los "Resultados calculados del usuario" que se te dan abajo son el escenario ACTUAL en \
 pantalla — úsalos para explicar, y usa la tool solo para escenarios HIPOTÉTICOS distintos.
+2.5. El impacto de esperar 12 meses se calcula por separado para Banco y para la porción \
+bancaria de Cofinavit — pueden diferir entre sí. Cítalos según cuál pregunte el usuario.
 3. Puedes responder preguntas GENERALES sobre crédito hipotecario en México (qué es \
 Infonavit, cómo funciona el Cofinavit, qué es la UMA, etc.) con tu conocimiento general.
 4. Siempre deja claro que esto es información educativa, no asesoría financiera \
@@ -52,6 +54,15 @@ def _tasa_bancaria_actual() -> float:
         return series.loc[series["serie"] == "tasa_hipotecaria_promedio", "valor"].iloc[-1] / 100
     tiie = series.loc[series["serie"] == "tiie_28", "valor"].iloc[-1] / 100
     return tiie + 0.035
+
+
+def _formatear_impacto(nombre: str, im: dict) -> str:
+    conclusion = "conviene ESPERAR" if im["neto_12m"] > 0 else "conviene COMPRAR AHORA"
+    return (
+        f"Impacto de esperar 12 meses ({nombre}): ahorro en pagos ${im['ahorro_12m']:,.0f} − "
+        f"aumento de precio estimado ${im['costo_precio_12m']:,.0f} = neto ${im['neto_12m']:,.0f} "
+        f"→ {conclusion}."
+    )
 
 
 def _formatear_contexto(perfil: dict, resultados: dict) -> str:
@@ -80,11 +91,23 @@ def _formatear_contexto(perfil: dict, resultados: dict) -> str:
 
     if resultados.get("semaforo"):
         s = resultados["semaforo"]
-        partes.append(f"Semáforo de mercado: {s['senal']} — {s['razon']}")
+        partes.append(f"Tasa bancaria — señal aislada: {s['senal']} — {s['razon']}")
+
+    if resultados.get("posicion_mercado"):
+        pm = resultados["posicion_mercado"]
+        partes.append(f"Posición vs. mercado (SHF): {pm['mensaje']} "
+                       f"(P25 ${pm['p25']:,.0f}, Mediana ${pm['mediana']:,.0f}, P75 ${pm['p75']:,.0f}).")
+
+    if resultados.get("impacto_banco"):
+        partes.append(_formatear_impacto("crédito bancario", resultados["impacto_banco"]))
+
+    if resultados.get("impacto_cofinavit"):
+        partes.append(_formatear_impacto("porción bancaria de Cofinavit", resultados["impacto_cofinavit"]))
 
     return "\n".join(partes)
 
 
+# ── Function calling (tool use) ──────────────────────────────────────────
 TOOLS = [
     {
         "name": "recalcular_escenarios_credito",
@@ -195,7 +218,7 @@ def generar_resumen_estructurado(perfil: dict, resultados: dict) -> dict:
         "input_schema": {
             "type": "object",
             "properties": {
-                "resumen": {"type": "string", "description": "Resumen del caso en 2-3 frases, en español"},
+                "resumen": {"type": "string", "description": "Resumen del caso en 2-3 frases, en español, tono cercano"},
                 "mejor_opcion": {
                     "type": "string",
                     "enum": ["infonavit", "banco", "cofinavit", "ninguna_elegible"],
@@ -214,7 +237,7 @@ def generar_resumen_estructurado(perfil: dict, resultados: dict) -> dict:
         system=SYSTEM_PROMPT_BASE + "\n\n" + contexto,
         tools=[schema_resumen],
         tool_choice={"type": "tool", "name": "registrar_resumen"},
-        messages=[{"role": "user", "content": "Genera el resumen estructurado de este caso."}],
+        messages=[{"role": "user", "content": "Genera el resumen de este caso, en tono cercano y sencillo."}],
     )
 
     bloque = next((b for b in respuesta.content if b.type == "tool_use"), None)

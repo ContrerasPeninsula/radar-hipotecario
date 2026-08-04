@@ -26,21 +26,52 @@ SERIES_BANXICO = {
     "tiie_28": "SF43783",
     "tasa_objetivo": "SF61745",
     "fix_usd": "SF43718",
-    "inpc_general": "SP1",
     # Tasas de crédito a la vivienda: extraer IDs del cuadro CF815 vía metadatos
     # "tasa_hipotecaria_promedio": "PENDIENTE_CF815",
 }
 
 # ── INEGI ────────────────────────────────────────────────────────────────
 INEGI_TOKEN = os.getenv("INEGI_TOKEN", "")
-INEGI_BASE = "https://www.inegi.org.mx/app/api/indicadores/desarrolladores/jsonxml"
+INEGI_BASE = "https://www.inegi.org.mx/app/api/indicadores/desarrolladores/jsonxml/INDICATOR"
 
 # ── Alcance geográfico ───────────────────────────────────────────────────
+# Cobertura nacional completa (32 entidades) — 100% sourced de config/shf_nacional.json,
+# sin depender del scraper (ver src/modelos/segmentacion_ciudades.py y precio_referencia.py).
+# clave interna -> nombre de entidad tal como aparece en shf_nacional.json.
 CIUDADES = {
-    "guadalajara": {"estado": "jalisco", "slug_portal": "jalisco/guadalajara"},
-    "cdmx": {"estado": "ciudad-de-mexico", "slug_portal": "distrito-federal"},
-    "estado_mexico": {"estado": "mexico", "slug_portal": "mexico"},
+    "aguascalientes": "Aguascalientes",
+    "baja_california": "Baja California",
+    "baja_california_sur": "Baja California Sur",
+    "campeche": "Campeche",
+    "chiapas": "Chiapas",
+    "chihuahua": "Chihuahua",
+    "cdmx": "Ciudad de México",
+    "coahuila": "Coahuila",
+    "colima": "Colima",
+    "durango": "Durango",
+    "guanajuato": "Guanajuato",
+    "guerrero": "Guerrero",
+    "hidalgo": "Hidalgo",
+    "jalisco": "Jalisco",
+    "michoacan": "Michoacán",
+    "morelos": "Morelos",
+    "estado_mexico": "México",
+    "nayarit": "Nayarit",
+    "nuevo_leon": "Nuevo León",
+    "oaxaca": "Oaxaca",
+    "puebla": "Puebla",
+    "queretaro": "Querétaro",
+    "quintana_roo": "Quintana Roo",
+    "san_luis_potosi": "San Luis Potosí",
+    "sinaloa": "Sinaloa",
+    "sonora": "Sonora",
+    "tabasco": "Tabasco",
+    "tamaulipas": "Tamaulipas",
+    "tlaxcala": "Tlaxcala",
+    "veracruz": "Veracruz",
+    "yucatan": "Yucatán",
+    "zacatecas": "Zacatecas",
 }
 
 # ── Sanity checks ────────────────────────────────────────────────────────
-RANGO_TASA_HIPOTECARIA = (0.08, 0.30)  # tasas anuales fuera de este rango → flag
+RANGO_TASA_HIPOTECARIA = (0.03, 0.30)  # tasas anuales fuera de este rango → flag

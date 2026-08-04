@@ -1,17 +1,17 @@
 {
-  "fuente": "SHF - Índice de Precios de la Vivienda, T1 2026 (ancla nacional) + índices por ciudad",
-  "url_fuente": "https://www.gob.mx/shf/articulos/indice-shf-de-precios-de-la-vivienda-en-mexico-primer-trimestre-de-2026",
-  "fecha_descarga": "2026-08-01",
-  "metodologia": "precio_ciudad_percentil = precio_nacional_percentil × (índice_ciudad_T1_2026 / índice_nacional_T1_2026). Escala la distribución nacional oficial de valores de avalúo hipotecario según la apreciación relativa de cada ciudad. No usa datos del scraper — 100% independiente de sesgos de portales de anuncios.",
+  "fuente": "SHF - Índice de Precios de la Vivienda en México T1 2026, tabla 'Distribución de los precios en el ámbito nacional y por entidad federativa 2026'",
+  "url_fuente": "https://www.gob.mx/shf/documentos/indice-shf-de-precios-de-la-vivienda-en-mexico-2025-a-2026",
+  "fecha_descarga": "2026-08-03",
+  "metodologia": "Percentiles REALES publicados directamente por SHF por entidad federativa (pesos corrientes) — ya NO son una estimación escalada por índice relativo. Nota geográfica: 'México' = Estado de México; 'Jalisco' se usa como proxy estatal de Guadalajara (SHF no publica esta tabla a nivel municipio).",
   "ancla_nacional": {
-    "indice_t1_2026": 203.2,
+    "precio_medio": 2024337,
     "p25": 842000,
     "mediana": 1331000,
     "p75": 2363000
   },
   "ciudades": {
-    "cdmx": {"indice_t1_2026": 175.20, "p25": 725976, "mediana": 1147594, "p75": 2037390},
-    "estado_mexico": {"indice_t1_2026": 171.74, "p25": 711639, "mediana": 1124931, "p75": 1997154},
-    "guadalajara": {"indice_t1_2026": 235.30, "p25": 975013, "mediana": 1541261, "p75": 2736289}
+    "cdmx": {"entidad": "Ciudad de México", "precio_medio": 4397976, "p25": 2340269, "mediana": 3368586, "p75": 5422094},
+    "estado_mexico": {"entidad": "México", "precio_medio": 2230968, "p25": 863000, "mediana": 1390900, "p75": 2542441},
+    "guadalajara": {"entidad": "Jalisco (proxy estatal)", "precio_medio": 2211582, "p25": 742867, "mediana": 1280000, "p75": 2771238}
   }
 }

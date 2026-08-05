@@ -13,6 +13,14 @@ Principio de seguridad que se mantiene: el LLM nunca inventa un número financie
 En el modo chat, los resultados ya calculados van en el contexto (solo lectura).
 En el modo tool use, cualquier recálculo pasa por src/motor_reglas/ real — el LLM
 decide QUÉ calcular, pero el motor de reglas determinista calcula el CÓMO.
+
+Dos tools disponibles:
+  - recalcular_escenarios_credito: sentido directo (ingreso → capacidad). Para
+    escenarios hipotéticos donde el usuario da un ingreso distinto.
+  - ingreso_necesario_para_precio: sentido inverso (precio objetivo → ingreso).
+    Resuelto por búsqueda binaria en Python sobre el motor de reglas real — NO por
+    el modelo adivinando ingresos y llamando recalcular_escenarios_credito varias
+    veces (eso agota el presupuesto de tokens/turnos antes de producir texto).
 """
 from __future__ import annotations
 
@@ -35,8 +43,15 @@ Reglas estrictas:
 1. NUNCA inventes ni calcules a mano tasas, montos o mensualidades. Si el usuario pregunta \
 un escenario distinto al que ya tienes en contexto (otro salario, otra ciudad, otro enganche), \
 usa la tool `recalcular_escenarios_credito` — no lo estimes tú.
+1.5. Si el usuario pregunta lo INVERSO — "¿cuál debería ser mi ingreso para alcanzar tal \
+precio/capacidad?" — usa la tool `ingreso_necesario_para_precio` en UNA sola llamada. \
+NUNCA intentes converger a mano llamando `recalcular_escenarios_credito` varias veces con \
+ingresos adivinados — eso es lento, impreciso y puede dejarte sin espacio para responder.
 2. Los "Resultados calculados del usuario" que se te dan abajo son el escenario ACTUAL en \
-pantalla — úsalos para explicar, y usa la tool solo para escenarios HIPOTÉTICOS distintos.
+pantalla — úsalos para explicar, y usa las tools solo para escenarios HIPOTÉTICOS distintos. \
+El perfil completo (ingreso, edad, sexo, ciudad, IMSS, SSV, enganche) ya está en ese bloque — \
+NUNCA vuelvas a pedirle al usuario un dato que ya aparece ahí; solo pide lo que falte \
+genuinamente (ej. un precio objetivo) o lo que el usuario quiera cambiar explícitamente.
 2.5. El impacto de esperar 12 meses se calcula por separado para Banco y para la porción \
 bancaria de Cofinavit — pueden diferir entre sí. Cítalos según cuál pregunte el usuario.
 3. Puedes responder preguntas GENERALES sobre crédito hipotecario en México (qué es \
@@ -68,8 +83,11 @@ def _formatear_impacto(nombre: str, im: dict) -> str:
 def _formatear_contexto(perfil: dict, resultados: dict) -> str:
     partes = ["Resultados calculados del usuario (escenario ACTUAL en pantalla):", ""]
     partes.append(f"Perfil: ingreso mensual ${perfil.get('ingreso', 0):,.0f} MXN, "
-                   f"edad {perfil.get('edad')}, ciudad {perfil.get('ciudad')}, "
-                   f"{'cotiza' if perfil.get('formal') else 'no cotiza'} al IMSS.")
+                   f"edad {perfil.get('edad')}, sexo {perfil.get('sexo', 'no especificado')}, "
+                   f"ciudad {perfil.get('ciudad')}, "
+                   f"{'cotiza' if perfil.get('formal') else 'no cotiza'} al IMSS, "
+                   f"subcuenta de vivienda (SSV) ${perfil.get('ssv', 0):,.0f} MXN, "
+                   f"enganche disponible ${perfil.get('enganche', 0):,.0f} MXN.")
     partes.append("")
 
     if resultados.get("infonavit"):
@@ -107,6 +125,69 @@ def _formatear_contexto(perfil: dict, resultados: dict) -> str:
     return "\n".join(partes)
 
 
+# ── Motor de búsqueda inversa (precio objetivo → ingreso necesario) ──────
+_SALARIO_MIN = 5_000.0
+_SALARIO_MAX = 500_000.0
+_ITERACIONES_BISECCION = 40  # converge a << $0.01 de precisión en salario
+
+
+def _capacidad_para_salario(via: str, salario: float, edad: int, sexo: str,
+                             formal: bool, ssv: float, enganche: float, tasa_banco: float) -> float | None:
+    """Regresa la capacidad_total del motor de reglas real para un salario dado,
+    o None si esa vía no es elegible para este perfil (independientemente del salario)."""
+    if via == "banco":
+        return escenario_bancario(salario, enganche, tasa_anual=tasa_banco)["capacidad_total"]
+
+    if not formal:
+        return None  # Infonavit y Cofinavit requieren IMSS, sin importar el ingreso
+
+    if via == "infonavit":
+        e = escenario_infonavit(salario, edad, sexo, ssv=ssv)
+        return e["capacidad_total"] if e.get("elegible") else 0.0
+
+    if via == "cofinavit":
+        e = escenario_cofinavit(salario, edad, sexo, ssv, enganche, tasa_banco)
+        return e["capacidad_total"] if e.get("elegible") else 0.0
+
+    raise ValueError(f"Vía desconocida: {via}")
+
+
+def _ingreso_necesario(precio_objetivo: float, via: str, edad: int, sexo: str,
+                        formal: bool, ssv: float, enganche: float, tasa_banco: float) -> dict:
+    """Búsqueda binaria del salario mínimo tal que capacidad_total >= precio_objetivo,
+    usando el motor de reglas real en cada evaluación (determinista, sin LLM)."""
+    capacidad_no_elegible = _capacidad_para_salario(via, _SALARIO_MIN, edad, sexo, formal, ssv, enganche, tasa_banco)
+    if capacidad_no_elegible is None:
+        return {"elegible_via": False, "motivo": "Esta vía requiere cotizar al IMSS"}
+
+    lo, hi = _SALARIO_MIN, _SALARIO_MAX
+    capacidad_max = _capacidad_para_salario(via, hi, edad, sexo, formal, ssv, enganche, tasa_banco)
+    if capacidad_max < precio_objetivo:
+        return {
+            "elegible_via": True,
+            "alcanzable": False,
+            "motivo": f"Ni con ${_SALARIO_MAX:,.0f}/mes esta vía alcanza el precio objetivo",
+            "capacidad_con_salario_maximo": round(capacidad_max, 2),
+        }
+
+    for _ in range(_ITERACIONES_BISECCION):
+        mid = (lo + hi) / 2
+        capacidad_mid = _capacidad_para_salario(via, mid, edad, sexo, formal, ssv, enganche, tasa_banco)
+        if capacidad_mid >= precio_objetivo:
+            hi = mid
+        else:
+            lo = mid
+
+    ingreso_necesario = round(hi, 2)
+    capacidad_final = round(_capacidad_para_salario(via, ingreso_necesario, edad, sexo, formal, ssv, enganche, tasa_banco), 2)
+    return {
+        "elegible_via": True,
+        "alcanzable": True,
+        "ingreso_mensual_necesario": ingreso_necesario,
+        "capacidad_total_resultante": capacidad_final,
+    }
+
+
 # ── Function calling (tool use) ──────────────────────────────────────────
 TOOLS = [
     {
@@ -115,7 +196,10 @@ TOOLS = [
             "Recalcula los tres escenarios de crédito (Infonavit, banco, Cofinavit) "
             "para un salario, edad, sexo, enganche y subcuenta de vivienda DISTINTOS "
             "a los del escenario actual en pantalla. Usa el motor de reglas real — "
-            "nunca estimes estos números tú mismo."
+            "nunca estimes estos números tú mismo. Para preguntas del tipo 'cuál "
+            "ingreso necesito para alcanzar X precio', usa en cambio "
+            "`ingreso_necesario_para_precio` — no llames esta tool varias veces "
+            "adivinando salarios para converger."
         ),
         "input_schema": {
             "type": "object",
@@ -129,32 +213,68 @@ TOOLS = [
             },
             "required": ["salario_mensual", "edad", "sexo", "cotiza_imss"],
         },
-    }
+    },
+    {
+        "name": "ingreso_necesario_para_precio",
+        "description": (
+            "Calcula, en una sola llamada, el ingreso mensual MÍNIMO necesario para "
+            "alcanzar una capacidad total de crédito objetivo (ej. el precio de una "
+            "vivienda o una referencia de mercado como la mediana SHF), para UNA vía "
+            "de crédito específica (banco, infonavit o cofinavit). Se resuelve por "
+            "búsqueda binaria sobre el motor de reglas real — exacto y en una sola "
+            "llamada. Si necesitas comparar las tres vías, llama esta tool tres veces "
+            "(una por vía), no adivines ni interpoles a mano."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "precio_objetivo": {"type": "number", "description": "Capacidad total / precio de vivienda objetivo en MXN"},
+                "via": {"type": "string", "enum": ["banco", "infonavit", "cofinavit"]},
+                "edad": {"type": "integer", "description": "Edad de la persona"},
+                "sexo": {"type": "string", "enum": ["Hombre", "Mujer"]},
+                "cotiza_imss": {"type": "boolean", "description": "Si cotiza al IMSS (empleo formal)"},
+                "ssv": {"type": "number", "description": "Subcuenta de vivienda aproximada en MXN, default 0"},
+                "enganche": {"type": "number", "description": "Enganche disponible en MXN, default 0"},
+            },
+            "required": ["precio_objetivo", "via", "edad", "sexo", "cotiza_imss"],
+        },
+    },
 ]
 
 
 def _ejecutar_tool(nombre: str, entrada: dict) -> dict:
-    if nombre != "recalcular_escenarios_credito":
-        return {"error": f"Tool desconocida: {nombre}"}
+    if nombre == "recalcular_escenarios_credito":
+        salario = entrada["salario_mensual"]
+        edad = entrada["edad"]
+        sexo = entrada["sexo"][0]
+        formal = entrada["cotiza_imss"]
+        ssv = entrada.get("ssv", 0)
+        enganche = entrada.get("enganche", 0)
 
-    salario = entrada["salario_mensual"]
-    edad = entrada["edad"]
-    sexo = entrada["sexo"][0]
-    formal = entrada["cotiza_imss"]
-    ssv = entrada.get("ssv", 0)
-    enganche = entrada.get("enganche", 0)
+        salida = {}
+        if formal:
+            salida["infonavit"] = escenario_infonavit(salario, edad, sexo, ssv=ssv)
+            tasa_banco = _tasa_bancaria_actual()
+            salida["cofinavit"] = escenario_cofinavit(salario, edad, sexo, ssv, enganche, tasa_banco)
+        else:
+            salida["infonavit"] = {"elegible": False, "motivo": "No cotiza al IMSS"}
 
-    salida = {}
-    if formal:
-        salida["infonavit"] = escenario_infonavit(salario, edad, sexo, ssv=ssv)
         tasa_banco = _tasa_bancaria_actual()
-        salida["cofinavit"] = escenario_cofinavit(salario, edad, sexo, ssv, enganche, tasa_banco)
-    else:
-        salida["infonavit"] = {"elegible": False, "motivo": "No cotiza al IMSS"}
+        salida["banco"] = escenario_bancario(salario, enganche, tasa_anual=tasa_banco)
+        return salida
 
-    tasa_banco = _tasa_bancaria_actual()
-    salida["banco"] = escenario_bancario(salario, enganche, tasa_anual=tasa_banco)
-    return salida
+    if nombre == "ingreso_necesario_para_precio":
+        edad = entrada["edad"]
+        sexo = entrada["sexo"][0]
+        formal = entrada["cotiza_imss"]
+        ssv = entrada.get("ssv", 0)
+        enganche = entrada.get("enganche", 0)
+        tasa_banco = _tasa_bancaria_actual()
+        return _ingreso_necesario(
+            entrada["precio_objetivo"], entrada["via"], edad, sexo, formal, ssv, enganche, tasa_banco,
+        )
+
+    return {"error": f"Tool desconocida: {nombre}"}
 
 
 def responder(pregunta: str, historial: list[dict], perfil: dict, resultados: dict) -> str:
@@ -173,7 +293,10 @@ def responder(pregunta: str, historial: list[dict], perfil: dict, resultados: di
     for _ in range(MAX_VUELTAS):
         respuesta = client.messages.create(
             model="claude-sonnet-5",
-            max_tokens=800,
+            max_tokens=3000,
+            effort="medium",  # este caso de uso (orquestar tools + explicar) no necesita
+                               # el default "high"; alto effort + thinking adaptativo puede
+                               # agotar max_tokens solo en thinking antes de responder texto
             system=system_prompt,
             tools=TOOLS,
             messages=mensajes,
@@ -181,7 +304,12 @@ def responder(pregunta: str, historial: list[dict], perfil: dict, resultados: di
 
         if respuesta.stop_reason != "tool_use":
             bloques_texto = [b.text for b in respuesta.content if b.type == "text"]
-            return "".join(bloques_texto) if bloques_texto else "⚠️ Sin respuesta de texto."
+            if bloques_texto:
+                return "".join(bloques_texto)
+            if respuesta.stop_reason == "max_tokens":
+                return ("⚠️ La respuesta se cortó antes de generar texto (límite de tokens). "
+                        "Intenta reformular tu pregunta de forma más específica o directa.")
+            return "⚠️ Sin respuesta de texto."
 
         mensajes.append({"role": "assistant", "content": respuesta.content})
         resultados_tools = []
@@ -233,7 +361,8 @@ def generar_resumen_estructurado(perfil: dict, resultados: dict) -> dict:
 
     respuesta = client.messages.create(
         model="claude-sonnet-5",
-        max_tokens=500,
+        max_tokens=800,
+        effort="medium",
         system=SYSTEM_PROMPT_BASE + "\n\n" + contexto,
         tools=[schema_resumen],
         tool_choice={"type": "tool", "name": "registrar_resumen"},

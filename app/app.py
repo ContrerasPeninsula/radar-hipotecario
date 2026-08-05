@@ -80,20 +80,57 @@ def _calcular_impacto(mensualidad_actual: float, monto: float, plazo_anios: int,
     }
 
 
-def _mostrar_bloque_impacto(titulo: str, impacto: dict) -> None:
-    neto = impacto["neto_12m"]
-    if neto > 0:
-        st.success(f"#### 🟢 {titulo}: conviene ESPERAR — \\${neto:,.0f} netos a tu favor en 12 meses")
-    else:
-        st.error(f"#### 🔴 {titulo}: conviene COMPRAR AHORA — esperar costaría \\${-neto:,.0f} netos en 12 meses")
+_COLOR_ACTUA = "#C1662F"   # terracota — "conviene comprar ahora" (acción)
+_COLOR_ESPERA = "#4A6B8A"  # steel blue — "conviene esperar" (paciencia)
 
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Mensualidad hoy", f"${impacto['mensualidad_actual']:,.0f}")
-    m2.metric("Mensualidad proyectada (12m)", f"${impacto['mensualidad_proyectada']:,.0f}",
-              delta=f"${impacto['mensualidad_proyectada'] - impacto['mensualidad_actual']:,.0f}",
-              delta_color="inverse")
-    m3.metric("Ahorro en pagos (12m)", f"${impacto['ahorro_12m']:,.0f}")
-    m4.metric("Impacto neto", f"${neto:,.0f}")
+
+def _banner_recomendacion(titulo: str, neto: float) -> None:
+    """Banner neutral (paleta de marca, no semáforo rojo/verde) para la
+    recomendación de comprar ahora vs. esperar. Evita la connotación de
+    alarma que implica rojo/verde en este contexto, donde ninguna de las
+    dos opciones es intrínsecamente 'mala'."""
+    if neto > 0:
+        color = _COLOR_ESPERA
+        texto = f"{titulo}: conviene ESPERAR — \\${neto:,.0f} netos a tu favor en 12 meses"
+    else:
+        color = _COLOR_ACTUA
+        texto = f"{titulo}: conviene COMPRAR AHORA — esperar costaría \\${-neto:,.0f} netos en 12 meses"
+
+    st.markdown(
+        f"""<div style="background:{color}1F; border-left:4px solid {color};
+        border-radius:6px; padding:14px 18px; margin-bottom:10px;">
+        <span style="color:{color}; font-weight:600; font-size:1.05rem;">{texto}</span>
+        </div>""",
+        unsafe_allow_html=True,
+    )
+
+
+def _mostrar_bloque_impacto(titulo: str, impacto: dict, compacto: bool = False) -> None:
+    """Renderiza el bloque de impacto de esperar 12 meses.
+
+    compacto=True organiza las 4 métricas en grilla 2x2 en vez de 4 columnas
+    horizontales — pensado para cuando el bloque vive dentro de una columna
+    angosta (ej. Banco/Cofinavit lado a lado en tab_semaforo)."""
+    neto = impacto["neto_12m"]
+    _banner_recomendacion(titulo, neto)
+
+    if compacto:
+        f1, f2 = st.columns(2)
+        f1.metric("Mensualidad hoy", f"${impacto['mensualidad_actual']:,.0f}")
+        f2.metric("Mensualidad proyectada (12m)", f"${impacto['mensualidad_proyectada']:,.0f}",
+                  delta=f"${impacto['mensualidad_proyectada'] - impacto['mensualidad_actual']:,.0f}",
+                  delta_color="inverse")
+        f3, f4 = st.columns(2)
+        f3.metric("Ahorro en pagos (12m)", f"${impacto['ahorro_12m']:,.0f}")
+        f4.metric("Impacto neto", f"${neto:,.0f}")
+    else:
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Mensualidad hoy", f"${impacto['mensualidad_actual']:,.0f}")
+        m2.metric("Mensualidad proyectada (12m)", f"${impacto['mensualidad_proyectada']:,.0f}",
+                  delta=f"${impacto['mensualidad_proyectada'] - impacto['mensualidad_actual']:,.0f}",
+                  delta_color="inverse")
+        m3.metric("Ahorro en pagos (12m)", f"${impacto['ahorro_12m']:,.0f}")
+        m4.metric("Impacto neto", f"${neto:,.0f}")
 
     with st.expander(f"Ver detalle — {titulo}"):
         st.markdown(
@@ -274,33 +311,35 @@ with tab_semaforo:
 
             st.divider()
 
-            if resultados.get("banco") and precio_mediana is not None:
-                banco = resultados["banco"]
-                impacto_banco = _calcular_impacto(
-                    banco["mensualidad_estimada"], banco["monto_max"], banco["plazo_anios"],
-                    tasa_proyectada, precio_mediana, variacion_pct,
-                )
-                _mostrar_bloque_impacto("Crédito bancario", impacto_banco)
-                resultados["impacto_banco"] = impacto_banco
+            col_banco, col_cofi = st.columns(2)
 
-            st.divider()
-
-            if resultados.get("cofinavit") and resultados["cofinavit"].get("elegible") and precio_mediana is not None:
-                cofi = resultados["cofinavit"]
-                comp_banco = cofi["componente_bancario"]
-                if comp_banco["monto"] > 0:
-                    impacto_cofi = _calcular_impacto(
-                        comp_banco["mensualidad"], comp_banco["monto"], 20,
+            with col_banco:
+                if resultados.get("banco") and precio_mediana is not None:
+                    banco = resultados["banco"]
+                    impacto_banco = _calcular_impacto(
+                        banco["mensualidad_estimada"], banco["monto_max"], banco["plazo_anios"],
                         tasa_proyectada, precio_mediana, variacion_pct,
                     )
-                    _mostrar_bloque_impacto("Cofinavit (solo porción bancaria)", impacto_cofi)
-                    resultados["impacto_cofinavit"] = impacto_cofi
-                    st.caption(
-                        "La porción Infonavit del Cofinavit no cambia con esta proyección — "
-                        "su tasa depende de tu nivel salarial, no de la TIIE."
-                    )
-                else:
-                    st.info("En este escenario, Cofinavit no tiene componente bancario adicional.")
+                    _mostrar_bloque_impacto("Crédito bancario", impacto_banco, compacto=True)
+                    resultados["impacto_banco"] = impacto_banco
+
+            with col_cofi:
+                if resultados.get("cofinavit") and resultados["cofinavit"].get("elegible") and precio_mediana is not None:
+                    cofi = resultados["cofinavit"]
+                    comp_banco = cofi["componente_bancario"]
+                    if comp_banco["monto"] > 0:
+                        impacto_cofi = _calcular_impacto(
+                            comp_banco["mensualidad"], comp_banco["monto"], 20,
+                            tasa_proyectada, precio_mediana, variacion_pct,
+                        )
+                        _mostrar_bloque_impacto("Cofinavit (solo porción bancaria)", impacto_cofi, compacto=True)
+                        resultados["impacto_cofinavit"] = impacto_cofi
+                        st.caption(
+                            "La porción Infonavit del Cofinavit no cambia con esta proyección — "
+                            "su tasa depende de tu nivel salarial, no de la TIIE."
+                        )
+                    else:
+                        st.info("En este escenario, Cofinavit no tiene componente bancario adicional.")
 
         except Exception as e:
             st.warning(f"No se pudo calcular el semáforo: {e}")
@@ -310,7 +349,8 @@ with tab_resumen:
     if st.button("Generar mi resumen"):
         with st.spinner("Armando tu resumen..."):
             resumen = generar_resumen_estructurado(
-                {"ingreso": ingreso, "edad": edad, "ciudad": nombre_ciudad, "formal": formal},
+                {"ingreso": ingreso, "edad": edad, "ciudad": nombre_ciudad, "formal": formal,
+                 "sexo": sexo, "ssv": ssv, "enganche": enganche},
                 resultados,
             )
         if "error" in resumen:
@@ -340,15 +380,13 @@ with tab_asistente:
     pregunta = st.chat_input("Ej. ¿Y si mi ingreso fuera de $25,000?")
     if pregunta:
         st.session_state.historial_chat.append({"role": "user", "content": pregunta})
-        with st.chat_message("user"):
-            st.write(pregunta)
 
-        perfil = {"ingreso": ingreso, "edad": edad, "ciudad": nombre_ciudad, "formal": formal}
-        with st.chat_message("assistant"):
-            with st.spinner("Pensando..."):
-                respuesta = responder(pregunta, st.session_state.historial_chat[:-1], perfil, resultados)
-                st.write(_escapar_dolar(respuesta))
+        perfil = {"ingreso": ingreso, "edad": edad, "ciudad": nombre_ciudad, "formal": formal,
+                  "sexo": sexo, "ssv": ssv, "enganche": enganche}
+        with st.spinner("Pensando..."):
+            respuesta = responder(pregunta, st.session_state.historial_chat[:-1], perfil, resultados)
         st.session_state.historial_chat.append({"role": "assistant", "content": respuesta})
+        st.rerun()
 
 st.divider()
 st.caption(

@@ -68,6 +68,7 @@ def escenario_cofinavit(
     pago_disponible_banco = max(salario_mensual * 0.40 - info["mensualidad_estimada"], 0)
     i, n = tasa_bancaria / 12, plazo_anios * 12
     monto_banco = pago_disponible_banco * ((1 + i) ** n - 1) / (i * (1 + i) ** n) if pago_disponible_banco > 0 else 0
+    mensualidad_banco = round(_mensualidad(monto_banco, tasa_bancaria, plazo_anios), 2) if monto_banco else 0
 
     return {
         "elegible": True,
@@ -75,7 +76,8 @@ def escenario_cofinavit(
         "componente_bancario": {
             "tasa_anual": tasa_bancaria,
             "monto": round(monto_banco, 2),
-            "mensualidad": round(_mensualidad(monto_banco, tasa_bancaria, plazo_anios), 2) if monto_banco else 0,
+            "mensualidad": mensualidad_banco,
         },
+        "mensualidad_total": round(info["mensualidad_estimada"] + mensualidad_banco, 2),
         "capacidad_total": round(info["capacidad_total"] + monto_banco + enganche, 2),
     }

@@ -189,11 +189,16 @@ with tab_escenario:
             e = resultados["cofinavit"]
             if e["elegible"]:
                 st.metric("Capacidad total", f"${e['capacidad_total']:,.0f}")
-                st.caption("Infonavit + banco combinados")
+                st.metric("Mensualidad", f"${e['mensualidad_total']:,.0f}")
                 st.caption(
-                    "💡 No es la suma directa: se reparte tu capacidad de pago (40% del ingreso) "
-                    "entre ambos créditos — Infonavit consume su mensualidad primero, el banco "
-                    "cubre el resto del presupuesto disponible."
+                    f"Infonavit \\${e['componente_infonavit']['mensualidad_estimada']:,.0f} + "
+                    f"Banco \\${e['componente_bancario']['mensualidad']:,.0f} "
+                    "· Infonavit + banco combinados"
+                )
+                st.caption(
+                    "💡 No es la suma directa de tu capacidad total: se reparte tu capacidad de pago "
+                    "(40% del ingreso) entre ambos créditos — Infonavit consume su mensualidad primero, "
+                    "el banco cubre el resto del presupuesto disponible."
                 )
                 pos = posicion_mercado(ciudad, e["capacidad_total"])
                 if pos:

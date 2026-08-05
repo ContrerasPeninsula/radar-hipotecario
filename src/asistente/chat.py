@@ -33,6 +33,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from config.settings import DIR_SNAPSHOTS
+from src.modelos.precio_referencia import ETIQUETAS_PERCENTIL
 from src.motor_reglas.bancario import escenario_bancario, escenario_cofinavit
 from src.motor_reglas.infonavit import escenario_infonavit
 
@@ -59,6 +60,10 @@ Infonavit, cómo funciona el Cofinavit, qué es la UMA, etc.) con tu conocimient
 4. Siempre deja claro que esto es información educativa, no asesoría financiera \
 personalizada ni una precalificación oficial de Infonavit o de ningún banco.
 5. Responde en español, tono claro y directo, sin tecnicismos innecesarios, y breve.
+6. Al hablar de percentiles de precio de vivienda, usa SIEMPRE el lenguaje plano ya \
+usado en el contexto — "entrada al mercado" (no "P25"), "precio típico" (no "mediana" \
+sola, aunque puedes decir "precio típico (mediana)" si ayuda), "gama alta" (no "P75"). \
+Nunca uses las siglas P25/P75 ni la palabra "percentil" al hablarle al usuario.
 """
 
 
@@ -114,7 +119,9 @@ def _formatear_contexto(perfil: dict, resultados: dict) -> str:
     if resultados.get("posicion_mercado"):
         pm = resultados["posicion_mercado"]
         partes.append(f"Posición vs. mercado (SHF): {pm['mensaje']} "
-                       f"(P25 ${pm['p25']:,.0f}, Mediana ${pm['mediana']:,.0f}, P75 ${pm['p75']:,.0f}).")
+                       f"({ETIQUETAS_PERCENTIL['p25']} ${pm['p25']:,.0f}, "
+                       f"{ETIQUETAS_PERCENTIL['mediana']} ${pm['mediana']:,.0f}, "
+                       f"{ETIQUETAS_PERCENTIL['p75']} ${pm['p75']:,.0f}).")
 
     if resultados.get("impacto_banco"):
         partes.append(_formatear_impacto("crédito bancario", resultados["impacto_banco"]))
@@ -294,9 +301,10 @@ def responder(pregunta: str, historial: list[dict], perfil: dict, resultados: di
         respuesta = client.messages.create(
             model="claude-sonnet-5",
             max_tokens=3000,
-            effort="medium",  # este caso de uso (orquestar tools + explicar) no necesita
-                               # el default "high"; alto effort + thinking adaptativo puede
-                               # agotar max_tokens solo en thinking antes de responder texto
+            output_config={"effort": "medium"},  # este caso de uso (orquestar tools + explicar)
+                                                   # no necesita el default "high"; alto effort +
+                                                   # thinking adaptativo puede agotar max_tokens
+                                                   # solo en thinking antes de responder texto
             system=system_prompt,
             tools=TOOLS,
             messages=mensajes,
@@ -362,7 +370,7 @@ def generar_resumen_estructurado(perfil: dict, resultados: dict) -> dict:
     respuesta = client.messages.create(
         model="claude-sonnet-5",
         max_tokens=800,
-        effort="medium",
+        output_config={"effort": "medium"},
         system=SYSTEM_PROMPT_BASE + "\n\n" + contexto,
         tools=[schema_resumen],
         tool_choice={"type": "tool", "name": "registrar_resumen"},

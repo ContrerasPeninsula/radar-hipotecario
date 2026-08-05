@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config.settings import CIUDADES, DIR_SNAPSHOTS
 from src.asistente.chat import generar_resumen_estructurado, responder
 from src.modelos.forecast_tasas import proyectar_tasa_hipotecaria, semaforo
-from src.modelos.precio_referencia import percentiles_ciudad, posicion_mercado
+from src.modelos.precio_referencia import ETIQUETAS_PERCENTIL, percentiles_ciudad, posicion_mercado
 from src.modelos.segmentacion_ciudades import cargar_variacion_shf, obtener_arquetipos
 from src.motor_reglas.bancario import escenario_bancario, escenario_cofinavit
 from src.motor_reglas.infonavit import _mensualidad, escenario_infonavit
@@ -181,8 +181,9 @@ with tab_escenario:
     if pct_ciudad:
         st.caption(
             f"📊 Referencia de mercado en {nombre_ciudad} (SHF): "
-            f"P25 \\${pct_ciudad['p25']:,.0f} · Mediana \\${pct_ciudad['mediana']:,.0f} · "
-            f"P75 \\${pct_ciudad['p75']:,.0f}"
+            f"{ETIQUETAS_PERCENTIL['p25']} \\${pct_ciudad['p25']:,.0f} · "
+            f"{ETIQUETAS_PERCENTIL['mediana']} \\${pct_ciudad['mediana']:,.0f} · "
+            f"{ETIQUETAS_PERCENTIL['p75']} \\${pct_ciudad['p75']:,.0f}"
         )
 
     col1, col2, col3 = st.columns(3)
@@ -279,10 +280,11 @@ with tab_semaforo:
                     resultados["por_debajo_p25"] = mejor_capacidad < pos_mejor["p25"]
 
             if resultados.get("por_debajo_p25"):
-                st.warning(
-                    "⚠️ Ni con tu mejor opción de crédito alcanzas el 25% de las viviendas más "
-                    f"económicas de {nombre_ciudad} hoy. Lo que sigue indica **cuándo** conviene "
-                    "actuar en cuanto tengas la capacidad suficiente — no que ya puedas comprar."
+                st.info(
+                    "📍 Tu capacidad actual todavía no alcanza la entrada al mercado "
+                    f"(el 25% de las viviendas más económicas) en {nombre_ciudad} — es un punto "
+                    "de partida común, no un obstáculo definitivo. Lo que sigue te muestra cuándo "
+                    "conviene actuar en cuanto tu capacidad crezca lo suficiente."
                 )
 
             m1, m2 = st.columns(2)

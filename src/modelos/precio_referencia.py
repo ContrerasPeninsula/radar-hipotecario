@@ -15,6 +15,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from config.settings import CIUDADES, DIR_CONFIG
 
+# Etiquetas en lenguaje plano para P25/mediana/P75 — "percentil 25" no comunica
+# nada a un usuario sin trasfondo estadístico. Centralizadas aquí para que
+# app.py y src/asistente/chat.py usen exactamente el mismo vocabulario y no
+# se mezcle "P25" en una pantalla con "Entrada al mercado" en otra.
+ETIQUETAS_PERCENTIL = {
+    "p25": "Entrada al mercado",
+    "mediana": "Precio típico",
+    "p75": "Gama alta",
+}
+
 
 def _cargar_nacional() -> dict:
     ruta = DIR_CONFIG / "shf_nacional.json"
@@ -47,16 +57,17 @@ def posicion_mercado(ciudad: str, capacidad_total: float) -> dict | None:
 
     if capacidad_total < p25:
         tier = "por debajo del 25% más accesible"
-        mensaje = "Tu capacidad está por debajo del 25% de las viviendas más económicas de esta entidad."
+        mensaje = ("Tu capacidad está por debajo de la entrada al mercado — el 25% de "
+                   "las viviendas más económicas de esta entidad.")
     elif capacidad_total < mediana:
         tier = "en el rango accesible (25%-50%)"
-        mensaje = "Tu capacidad te ubica en el segmento accesible del mercado — por debajo de la mediana."
+        mensaje = "Tu capacidad te ubica en el segmento accesible del mercado — por debajo del precio típico."
     elif capacidad_total < p75:
         tier = "en el rango medio-alto (50%-75%)"
-        mensaje = "Tu capacidad supera la mediana del mercado — accedes a una porción amplia de la oferta."
+        mensaje = "Tu capacidad supera el precio típico del mercado — accedes a una porción amplia de la oferta."
     else:
         tier = "en el 25% superior"
-        mensaje = "Tu capacidad te ubica en el segmento más alto del mercado de esta entidad."
+        mensaje = "Tu capacidad te ubica en el segmento de gama alta de esta entidad."
 
     return {
         "tier": tier,

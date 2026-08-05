@@ -8,4 +8,4 @@ scikit-learn>=1.4
 plotly>=5.20
 selenium>=4.15
 beautifulsoup4>=4.12
-anthropic>=0.40
+anthropic==0.120.2

@@ -41,6 +41,13 @@ def cargar_arquetipos() -> dict:
         return {}
 
 
+@st.cache_data(ttl=3600)  # Prophet reentrena en cada llamada (ver forecast_tasas.py) — cachear
+                            # por hora evita que cada visitante dispare su propio entrenamiento;
+                            # la proyección solo cambia cuando llega un snapshot nuevo (semanal).
+def calcular_semaforo(horizonte_dias: int = 365) -> dict:
+    return proyectar_tasa_hipotecaria(horizonte_dias=horizonte_dias)
+
+
 def tasa_bancaria_referencia(series: pd.DataFrame) -> float:
     if "tasa_hipotecaria_promedio" in series["serie"].unique():
         return series.loc[series["serie"] == "tasa_hipotecaria_promedio", "valor"].iloc[-1] / 100
@@ -254,7 +261,7 @@ with tab_semaforo:
 
     with st.spinner("Calculando impacto de mercado..."):
         try:
-            proyeccion = proyectar_tasa_hipotecaria(horizonte_dias=365)
+            proyeccion = calcular_semaforo(horizonte_dias=365)
             resultado_semaforo = semaforo(proyeccion)
             resultados["semaforo"] = resultado_semaforo
             tasa_proyectada = resultado_semaforo["tasa_proyectada"]

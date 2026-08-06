@@ -2,8 +2,8 @@
 Radar Hipotecario — UI Streamlit.
 Lee snapshots Parquet del repo (nunca APIs en vivo) + motores de reglas.
 Cobertura: 32 entidades federativas, 100% oficiales SHF (config/shf_nacional.json).
-Despliegue: Streamlit Community Cloud (sin secrets necesarios para servir la parte
-determinista; ANTHROPIC_API_KEY se necesita solo para el asistente).
+Despliegue: Streamlit Community Cloud 
+ANTHROPIC_API_KEY se necesita solo para el asistente).
 """
 import sys
 from pathlib import Path
@@ -61,7 +61,7 @@ def procedencia_datos(series: pd.DataFrame) -> str:
 
 
 def _escapar_dolar(texto: str) -> str:
-    """Escapa '$' para que Streamlit no lo interprete como delimitador de LaTeX.
+    """Evita '$' para que Streamlit no lo interprete como delimitador de LaTeX.
     Necesario para cualquier texto generado por el LLM que pueda mencionar montos."""
     return texto.replace("$", "\\$") if texto else texto
 
@@ -92,10 +92,8 @@ _COLOR_ESPERA = "#4A6B8A"  # steel blue — "conviene esperar" (paciencia)
 
 
 def _banner_recomendacion(titulo: str, neto: float) -> None:
-    """Banner neutral (paleta de marca, no semáforo rojo/verde) para la
-    recomendación de comprar ahora vs. esperar. Evita la connotación de
-    alarma que implica rojo/verde en este contexto, donde ninguna de las
-    dos opciones es intrínsecamente 'mala'."""
+    """Banner neutral para la recomendación de comprar ahora vs. esperar.
+    """
     if neto > 0:
         color = _COLOR_ESPERA
         texto = f"{titulo}: conviene ESPERAR — \\${neto:,.0f} netos a tu favor en 12 meses"
@@ -113,11 +111,8 @@ def _banner_recomendacion(titulo: str, neto: float) -> None:
 
 
 def _mostrar_bloque_impacto(titulo: str, impacto: dict, compacto: bool = False) -> None:
-    """Renderiza el bloque de impacto de esperar 12 meses.
+    """Renderiza el bloque de impacto de esperar 12 meses."""
 
-    compacto=True organiza las 4 métricas en grilla 2x2 en vez de 4 columnas
-    horizontales — pensado para cuando el bloque vive dentro de una columna
-    angosta (ej. Banco/Cofinavit lado a lado en tab_semaforo)."""
     neto = impacto["neto_12m"]
     _banner_recomendacion(titulo, neto)
 

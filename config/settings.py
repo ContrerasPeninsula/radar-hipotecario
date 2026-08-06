@@ -26,7 +26,8 @@ SERIES_BANXICO = {
     "tiie_28": "SF43783",
     "tasa_objetivo": "SF61745",
     "fix_usd": "SF43718",
-    # Tasas de crédito a la vivienda: extraer IDs del cuadro CF815 vía metadatos
+    "inpc_general": "SP1",
+    # Tasas de crédito a la vivienda: extraer IDs del cuadro CF815
     # "tasa_hipotecaria_promedio": "PENDIENTE_CF815",
 }
 
